@@ -41,15 +41,14 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ route }) => {
   const [connectionPath, setConnectionPath] = useState<string[]>([]);
   const [showSongInput, setShowSongInput] = useState(false);
   const [isDirectConnection, setIsDirectConnection] = useState(false);
+  const [showKnowSongPrompt, setShowKnowSongPrompt] = useState(false);
 
   const fetchArtists = async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await axios.post<{ path: string[] }>(
-        `${apiBaseUrl}/getArtistsToMatch`,
-        {},
-        { timeout: 30000 }
+      const response = await axios.get<{ path: string[] }>(
+        `${apiBaseUrl}/getArtistsToMatch`
       );
       
       if (response.data?.path?.length >= 2) {
@@ -60,11 +59,7 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ route }) => {
         // Check if it's a direct connection (only 2 artists)
         if (response.data.path.length === 2) {
           setIsDirectConnection(true);
-          Alert.alert(
-            'Direct Connection!',
-            'These artists have collaborated directly. Try guessing their song!',
-            [{ text: 'OK', onPress: () => setShowSongInput(true) }]
-          );
+          setShowKnowSongPrompt(true);
         }
       } else {
         setError('Invalid artist data received');
@@ -77,20 +72,77 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ route }) => {
     }
   };
 
-  const handleArtistGuessSubmit = () => {
-    if (!artistGuess.trim()) return;
-    
-    const isCorrect = connectionPath.some(artist => 
-      artist.toLowerCase() === artistGuess.trim().toLowerCase()
-    );
-    
+  const handleKnowSongPrompt = () => {
     Alert.alert(
-      isCorrect ? 'Correct!' : 'Incorrect',
-      isCorrect 
-        ? `Yes! ${artistGuess} is part of the connection path.`
-        : `${artistGuess} is not part of the path. Try again!`,
-      [{ text: 'OK', onPress: () => setArtistGuess('') }]
+      'Direct Connection Found!',
+      `Do you know a song that connects ${startingArtist} and ${targetArtist}?`,
+      [
+        {
+          text: "No, show me the path",
+          onPress: () => {
+            setShowKnowSongPrompt(false);
+            // Continue with normal flow (artist guessing)
+            setIsDirectConnection(false);
+          }
+        },
+        {
+          text: "Yes, let me guess",
+          onPress: () => {
+            setShowKnowSongPrompt(false);
+            setShowSongInput(true);
+          }
+        }
+      ]
     );
+  };
+
+  useEffect(() => {
+    if (showKnowSongPrompt) {
+      handleKnowSongPrompt();
+    }
+  }, [showKnowSongPrompt]);
+
+  const handleArtistGuessSubmit = async () => {
+    if (!artistGuess || !artistGuess.trim()) return;
+
+    try {
+      const response = await axios.post(
+        `${apiBaseUrl}/verifyArtistHasConnection`,
+        null,
+        {
+          params: {
+            startingArtist: connectionPath[0],
+            targetArtist: artistGuess.trim()
+          },
+          paramsSerializer: params => {
+            return Object.entries(params)
+            .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
+            .join('&');
+          }
+        }
+      );
+
+      const isCorrect = response.data;
+
+      Alert.alert(
+        isCorrect ? 'Correct!' : 'Incorrect',
+        isCorrect 
+          ? `Yes! ${artistGuess} is part of the connection path.`
+          : `${artistGuess} is not part of the path. Try again!`,
+        [{ text: 'OK', onPress: () => setArtistGuess('') }]
+      );
+
+      if (isCorrect) {
+        setConnectionPath(prev => [...prev, artistGuess.trim()]);
+      }
+    } catch (error) {
+      console.error('Error verifying artist connection', error);
+      Alert.alert(
+        'Error',
+        'Failed to verify connection. Please try again.',
+        [{ text: 'OK'}]
+      )
+    }
   };
 
   const handleSongGuessSubmit = async () => {
@@ -99,37 +151,65 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ route }) => {
     try {
       // Call your API to verify the song collaboration
       const response = await axios.post(
-        `${apiBaseUrl}/verifySong`,
+        `${apiBaseUrl}/verifySongConnectsArtists`,
+        null,
         {
-          artist1: startingArtist,
-          artist2: targetArtist,
-          song: songGuess
+          params: {
+            startingArtist: startingArtist,
+            targetArtist: targetArtist,  
+            songTitle: songGuess.trim()
+          },
+          paramsSerializer: (params) => {
+            return Object.entries(params)
+              .map(([key, value]) => 
+                `${encodeURIComponent(key)}=${encodeURIComponent(value)}`
+              )
+              .join('&');
+          }
         }
       );
+
+      const { exactMatch, fuzzyMatches } = response.data;
       
-      if (response.data.isValid) {
+      if (exactMatch) {
         Alert.alert(
-          'Correct!',
-          `"${songGuess}" is a song by ${startingArtist} and ${targetArtist}!`,
-          [{ text: 'OK', onPress: () => {
-            setSongGuess('');
-            fetchArtists(); // Get new puzzle
-          }}]
+          'Perfect Match!',
+          `✅ "${songGuess}" directly connects ${connectionPath[0]} and ${connectionPath[connectionPath.length - 1]}`,
+          [{ text: 'OK', onPress: () => setSongGuess('')}]
         );
+      } else if (fuzzyMatches.length > 0) {
+        const bestMatch = fuzzyMatches[0];
+        
+        Alert.alert(
+          'Close Match!',
+          `Did you mean "${bestMatch.title}"? (${Math.round(bestMatch.similarity * 100)}% match)\n\n` + `This song 
+          features: ${bestMatch.featuredArtists.join(', ')}`,
+          [
+            { text: 'No', style: 'cancel'},
+            {
+              text: 'Yes, use this',
+              onPress: () => {
+                setSongGuess(bestMatch.title);
+                handleSongGuessSubmit();
+              }
+            }
+          ]
+        )
       } else {
         Alert.alert(
-          'Incorrect',
-          `"${songGuess}" is not a known collaboration. Try again!`,
-          [{ text: 'OK' }]
-        );
-      }
-    } catch (err) {
-      Alert.alert(
-        'Error',
-        'Failed to verify song. Please try again.',
-        [{ text: 'OK' }]
+        'No Match Found',
+        `"${songGuess}" doesn't appear to connect these artists. Try another song!`,
+        [{ text: 'OK', onPress: () => setSongGuess('') }]
       );
-    }
+      }
+    } catch (error) {
+    console.error('Song verification failed:', error);
+    Alert.alert(
+      'Error',
+      'Failed to verify song connection. Please try again.',
+      [{ text: 'OK' }]
+    );
+  }
   };
 
   useEffect(() => {
