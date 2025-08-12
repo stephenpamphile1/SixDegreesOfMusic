@@ -8,7 +8,7 @@ const BASE_URL = "http://localhost:8080/api/";
 
 export const getArtistsToMatch = async (): Promise<ArtistPathResponse> => {
     try {
-        const response = await axios.post<ArtistPathResponse>(
+        const response = await axios.get<ArtistPathResponse>(
             `${BASE_URL}/getArtistsToMatch`
         );
 
