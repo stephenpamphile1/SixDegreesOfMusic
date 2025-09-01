@@ -16,6 +16,8 @@ import { RootStackParamList } from '../src/navigation/navigationTypes';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { KeyboardAvoidingView, Platform } from 'react-native';
+import { useAuth } from '../src/contexts/AuthContext';
+import { useGameProgress } from '../src/hooks/useGameProgress';
 
 // Define your navigation props
 type PuzzleScreenNavigationProp = NativeStackNavigationProp<
@@ -25,16 +27,13 @@ type PuzzleScreenNavigationProp = NativeStackNavigationProp<
 type PuzzleScreenRouteProp = RouteProp<RootStackParamList, 'Puzzle'>;
 
 interface PuzzleScreenProps {
-  route: {
-    params: {
-      apiBaseUrl: string;
-    };
-  };
-  navigation: any;
+  route: PuzzleScreenRouteProp;
+  navigation: PuzzleScreenNavigationProp;
 }
 
 const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ route }) => {
   const { apiBaseUrl } = route.params;
+  const navigation = useNavigation<PuzzleScreenNavigationProp>();
   const [startingArtist, setStartingArtist] = useState<string>('');
   const [targetArtist, setTargetArtist] = useState<string>('');
   const [artistGuess, setArtistGuess] = useState('');
@@ -48,6 +47,38 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ route }) => {
   const [currentPath, setCurrentPath] = useState<string[]>([]);
   const [showSubmitButton, setShowSubmitButton] = useState(false);
   const [potentialConnection, setPotentialConnection] = useState('');
+  const { user } = useAuth();
+  const { saveProgress, loadProgress } = useGameProgress();
+  const [puzzleId] = useState(() => `puzzle_${Date.now()}`);
+
+  useEffect(() => {
+    if (user) {
+      loadSavedProgress();
+    }
+  }, [user]);
+
+  const loadSavedProgress = async () => {
+    const progress = await loadProgress();
+    if (progress) {
+        const savedPuzzle = progress.find((p: any) => p.targetArtist === targetArtist);
+        
+        if (savedPuzzle) {
+          setCurrentPath(savedPuzzle.currentPath || [startingArtist]);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (user && currentPath.length > 0) {
+      saveProgress({
+        puzzleId,
+        currentPath,
+        startingArtist,
+        targetArtist,
+        completed: currentPath[currentPath.length - 1] === targetArtist
+      });
+    }
+  }, [currentPath, user, puzzleId, startingArtist, targetArtist, saveProgress]);
 
   const fetchArtists = async () => {
     setLoading(true);
@@ -259,7 +290,7 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ route }) => {
         );
         Alert.alert(
         'You Won!',
-        `🎉 Congratulations! You connected ${startingArtist} to ${targetArtist}!\n\nPath: ${winningPath.join(' → ')}`,
+        `🎉 Congratulations! You connected ${startingArtist} to ${targetArtist}!\n\nPath: ${[startingArtist, targetArtist].join(' → ')}`,
         [
           { 
             text: 'Play Again', 
@@ -308,7 +339,7 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ route }) => {
       [{ text: 'OK' }]
     );
   }
-  };
+};
 
   useEffect(() => {
     fetchArtists();
@@ -337,7 +368,7 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ route }) => {
       style={styles.container} 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={90}
-      >
+    >
         <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
       <Text style={styles.header}>Connect These Artists</Text>
       
