@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "729776064370",
+    "project_id": "six-degrees-of-music-admin",
+    "storage_bucket": "six-degrees-of-music-admin.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:729776064370:android:e1ae9b03132a7261a07feb",
+        "android_client_info": {
+          "package_name": "com.sixdegreesofmusic"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBiI9SdagS5ZJ1iHYe4NuJV5BeGsCcgi8o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

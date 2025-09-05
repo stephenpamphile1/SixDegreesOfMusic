@@ -99,6 +99,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             setToken(token);
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         } catch (error) {
+            console.log(error);
             throw new Error("Registration failed!");
         }
     }
