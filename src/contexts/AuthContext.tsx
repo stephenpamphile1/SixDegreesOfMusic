@@ -1,6 +1,10 @@
 import React, { createContext, useContext, useState, useEffect} from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, 
+    updateProfile} from "@react-native-firebase/auth";
+
+const auth = getAuth();
 
 interface User {
     id: string;
@@ -21,7 +25,11 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
-export const AuthProvider: React.FC = ({ children }) => {
+interface AuthProviderProps {
+    children: React.ReactNode;
+}
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
     const [token, setToken] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
@@ -50,11 +58,17 @@ export const AuthProvider: React.FC = ({ children }) => {
 
     const login = async (email: string, password: string) => {
         try {
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            const user = userCredential.user;
+            const token = await user.getIdToken();
+
             const response = await axios.post(`${apiBaseUrl}/login`, { email, password});
             const { token: newToken, user: userData } = response.data;
 
-            await AsyncStorage.setItem('authToken', newToken);
-            await AsyncStorage.setItem('userData', JSON.stringify(userData));
+            await Promise.all([
+                AsyncStorage.setItem('authToken', newToken),
+                AsyncStorage.setItem('userData', JSON.stringify(userData))
+            ]);
             setToken(newToken);
             setUser(userData);
             axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
@@ -65,9 +79,25 @@ export const AuthProvider: React.FC = ({ children }) => {
 
     const register = async (email: string, password: string, username: string) => {
         try {
-            const response = await axios.post(`${apiBaseUrl}/register`, { email, password, username});
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const user = userCredential.user;
+            const token = await userCredential.user.getIdToken();
 
-            await login(email, password);
+            await updateProfile(user, { displayName: username });
+
+            const response = await axios.post(`${apiBaseUrl}/register`, {
+                token,
+                username
+            });   
+            const userData = response.data;
+            
+            await Promise.all([
+                AsyncStorage.setItem('authToken', token),
+                AsyncStorage.setItem('userData', JSON.stringify(userData))
+            ]);
+            setUser(userData);
+            setToken(token);
+            axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         } catch (error) {
             throw new Error("Registration failed!");
         }
