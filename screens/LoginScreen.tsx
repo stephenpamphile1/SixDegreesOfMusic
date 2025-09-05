@@ -5,6 +5,7 @@ import { useAuth } from '../src/contexts/AuthContext';
 import { Alert } from 'react-native';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View, Image, Text, 
     ActivityIndicator } from 'react-native';
+import logo from '../src/assets/images/logo.png';
 
 type LoginScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Login'>;
 
@@ -53,7 +54,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             <ScrollView contentContainerStyle={styles.scrollContainer}>
                 <View style={styles.logoContainer}>
                     <Image
-                        source={require('../assets/logo.png')}
+                        source={logo}
                         style={styles.logo}
                         resizeMode="contain"
                     />

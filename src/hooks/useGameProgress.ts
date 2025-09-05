@@ -6,6 +6,7 @@ import { useState } from 'react';
 export const useGameProgress = () => {
     const { token } = useAuth();
     const [saving, setSaving] = useState(false);
+    const apiBaseUrl = "http://192.168.1.142:8080/api";
 
     const saveProgress = async (puzzleData: {
         puzzleId: string;
@@ -13,18 +14,19 @@ export const useGameProgress = () => {
         startingArtist: string;
         targetArtist: string;
         completed?: boolean;
+        timeSpentSeconds?: number;
+        incorrectGuesses?: string[];
     }) => {
         if (!token) return;
 
         setSaving(true);
 
         try {
-            await axios.post(
+            const response = await axios.post(
                 `${apiBaseUrl}/saveProgress`,
                 {
                     ...puzzleData,
                     lastPlayed: new Date().toISOString(),
-                    attempts: (puzzleData.attempts || 0) + 1,
                 },
                 {
                     headers: {
@@ -32,8 +34,11 @@ export const useGameProgress = () => {
                     }
                 }
             );
+
+            return response.data;
         } catch (error) {
             console.error('Failed to save progress:', error);
+            throw error;
         } finally {
             setSaving(false);
         }

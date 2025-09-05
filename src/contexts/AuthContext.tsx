@@ -25,6 +25,7 @@ export const AuthProvider: React.FC = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
     const [token, setToken] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+    const apiBaseUrl = "http://192.168.1.142:8080/api";
     
     useEffect(() => {
         loadStoredAuth();

@@ -23,19 +23,21 @@ const App = () => {
   }
   
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {user ? (
-        <>
-          <Stack.Screen name="Home" component={HomeScreen} />
-          <Stack.Screen name="Puzzle" component={PuzzleScreen} />
-        </>
-      ) : (
-        <>
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="Register" component={RegistrationScreen} />
-        </>
-        )}
-    </Stack.Navigator>
+    <NavigationContainer>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        {user ? (
+          <>
+            <Stack.Screen name="Home" component={HomeScreen} />
+            <Stack.Screen name="Puzzle" component={PuzzleScreen} initialParams={{ apiBaseUrl: "http://192.168.1.142:8080/api" }} />
+          </>
+        ) : (
+          <>
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="Register" component={RegistrationScreen} />
+          </>
+          )}
+      </Stack.Navigator>
+    </NavigationContainer>
   );
 };
 

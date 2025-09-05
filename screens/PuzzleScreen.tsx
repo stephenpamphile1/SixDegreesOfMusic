@@ -50,6 +50,17 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ route }) => {
   const { user } = useAuth();
   const { saveProgress, loadProgress } = useGameProgress();
   const [puzzleId] = useState(() => `puzzle_${Date.now()}`);
+  const [startTime, setStartTime] = useState<Date>(new Date());
+  const [wrongGuesses, setWrongGuesses] = useState<string[]>([]);
+  const [currentTime, setCurrentTime] = useState(0);
+
+  useEffect(() => {
+    let interval = setInterval(() => {
+      setCurrentTime(Math.floor((new Date().getTime() - startTime.getTime()) / 1000));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [loading, error, startTime]);
 
   useEffect(() => {
     if (user) {
@@ -83,6 +94,9 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ route }) => {
   const fetchArtists = async () => {
     setLoading(true);
     setError(null);
+    setWrongGuesses([]);
+    setStartTime(new Date());
+
     try {
       const response = await axios.get<{ path: string[] }>(
         `${apiBaseUrl}/getArtistsToMatch`
@@ -186,6 +200,7 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ route }) => {
         );
         }
       } else {
+        setWrongGuesses((prev) => [...prev, guessedArtist]);
         Alert.alert(
         'Incorrect',
         `${guessedArtist} is not directly connected to ${lastArtistInPath}. Try again!`,
@@ -260,7 +275,6 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ route }) => {
     if (!songGuess.trim()) return;
     
     try {
-      // Call your API to verify the song collaboration
       const response = await axios.post(
         `${apiBaseUrl}/verifySongConnectsArtists`,
         null,
@@ -283,6 +297,9 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ route }) => {
       const { exactMatch, fuzzyMatches } = response.data;
       
       if (exactMatch) {
+        const finalPath = [startingArtist, targetArtist];
+        setCurrentPath(finalPath);
+        await handlePuzzleCompletion(finalPath);
         Alert.alert(
           'Perfect Match!',
           `✅ "${songGuess}" directly connects ${connectionPath[0]} and ${connectionPath[connectionPath.length - 1]}`,
@@ -325,6 +342,7 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ route }) => {
           ]
         )
       } else {
+        setWrongGuesses((prev) => [...prev, songGuess.trim()]);
         Alert.alert(
         'No Match Found',
         `"${songGuess}" doesn't appear to connect these artists. Try another song!`,
@@ -340,6 +358,62 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ route }) => {
     );
   }
 };
+
+const handlePuzzleCompletion = async (finalPath: string[]) => {
+    const endTime = new Date();
+    const timeSpentSeconds = Math.floor((endTime.getTime() - startTime.getTime()) / 1000);
+    
+    try {
+      const response = await saveProgress({
+        puzzleId: `puzzle_${startingArtist}_${targetArtist}_${Date.now()}`,
+        currentPath: finalPath,
+        startingArtist,
+        targetArtist,
+        completed: true,
+        timeSpentSeconds,
+        incorrectGuesses: wrongGuesses
+      });
+
+      if (response.data.scoreBreakdown) {
+        const {
+          baseScore,
+          timeBonus,
+          pathLengthBonus,
+          totalScore,
+          shortestPossiblePath,
+          playerPathLength
+        } = response.data.scoreBreakdown;
+
+        Alert.alert(
+          '🎉 Puzzle Completed!',
+          `Total Score: ${totalScore}\n\n` +
+          `• Base Score: ${baseScore}\n` +
+          `• Time Bonus: +${timeBonus}\n` +
+          `• Path Efficiency Bonus: +${pathLengthBonus}\n\n` +
+          `Your path: ${playerPathLength} connections\n` +
+          `Shortest possible: ${shortestPossiblePath} connections\n` +
+          `Time: ${Math.floor(timeSpentSeconds / 60)}m ${timeSpentSeconds % 60}s`,
+          [
+            { 
+              text: 'Play Again', 
+              onPress: () => {
+                setWrongGuesses([]);
+                setStartTime(new Date());
+                fetchArtists();
+              }
+            }
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('Failed to save progress:', error);
+      Alert.alert(
+        'Error',
+        'Failed to save progress. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
+}
 
   useEffect(() => {
     fetchArtists();
@@ -369,6 +443,14 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ route }) => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={90}
     >
+    <View style={styles.timeContainer}>
+      <Text style={styles.timerText}>
+        Time: {Math.floor(currentTime / 60)}:{(currentTime % 60).toString().padStart(2, '0')}
+      </Text>
+      <Text style={styles.wrongGuessesText}>
+        Wrong guesses: {wrongGuesses.length}
+      </Text>
+    </View>
         <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
       <Text style={styles.header}>Connect These Artists</Text>
       
@@ -577,6 +659,21 @@ const styles = StyleSheet.create({
   scrollContainer: {
     padding: 20,
     paddingBottom: 100 // Extra space at bottom
+  },
+  timerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+    paddingHorizontal: 10
+  },
+  timerText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  wrongGuessesText: {
+    fontSize: 16,
+    color: '#ff4444',
   }
 });
 
