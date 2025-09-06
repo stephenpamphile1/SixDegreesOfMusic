@@ -79,17 +79,17 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ route }) => {
     }
   };
 
-  useEffect(() => {
-    if (user && currentPath.length > 0) {
-      saveProgress({
-        puzzleId,
-        currentPath,
-        startingArtist,
-        targetArtist,
-        completed: currentPath[currentPath.length - 1] === targetArtist
-      });
-    }
-  }, [currentPath, user, puzzleId, startingArtist, targetArtist, saveProgress]);
+  // useEffect(() => {
+  //   if (user && currentPath.length > 0) {
+  //     saveProgress({
+  //       puzzleId,
+  //       currentPath,
+  //       startingArtist,
+  //       targetArtist,
+  //       completed: currentPath[currentPath.length - 1] === targetArtist
+  //     });
+  //   }
+  // }, [currentPath, user, puzzleId, startingArtist, targetArtist, saveProgress]);
 
   const fetchArtists = async () => {
     setLoading(true);
@@ -97,9 +97,14 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ route }) => {
     setWrongGuesses([]);
     setStartTime(new Date());
 
+    console.log('Fetching artists from:', `${apiBaseUrl}/getArtistsToMatch`);
+    
     try {
       const response = await axios.get<{ path: string[] }>(
-        `${apiBaseUrl}/getArtistsToMatch`
+        `${apiBaseUrl}/getArtistsToMatch`,
+        {
+          timeout: 10000 // 10 second timeout
+        }
       );
       
       if (response.data?.path?.length >= 2) {
@@ -240,6 +245,24 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ route }) => {
 
         setCurrentPath(winningPath);
         setShowSubmitButton(false);
+        try {
+          await saveProgress({
+            puzzleId,
+            currentPath: winningPath,
+            startingArtist,
+            targetArtist,
+            completed: true,
+            timeSpentSeconds: Math.floor((new Date().getTime() - startTime.getTime()) / 1000),
+            incorrectGuesses: wrongGuesses
+          });
+        } catch (error) {
+          console.error('Failed to save progress:', error);
+          Alert.alert(
+            'Error',
+            'Failed to save progress. Please try again.',
+            [{ text: 'OK' }]
+          );
+        }
         Alert.alert(
         'You Won!',
         `🎉 Congratulations! You connected ${startingArtist} to ${targetArtist}!\n\nPath: ${winningPath.join(' → ')}`,
@@ -277,7 +300,7 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ route }) => {
     try {
       const response = await axios.post(
         `${apiBaseUrl}/verifySongConnectsArtists`,
-        null,
+        {},
         {
           params: {
             startingArtist: startingArtist,
@@ -350,12 +373,12 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ route }) => {
       );
       }
     } catch (error) {
-    console.error('Song verification failed:', error);
-    Alert.alert(
-      'Error',
-      'Failed to verify song connection. Please try again.',
-      [{ text: 'OK' }]
-    );
+      console.error('Song verification failed:', error);
+      Alert.alert(
+        'Error',
+        'Failed to verify song connection. Please try again.',
+        [{ text: 'OK' }]
+      );
   }
 };
 

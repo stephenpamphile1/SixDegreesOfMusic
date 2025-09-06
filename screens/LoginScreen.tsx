@@ -36,6 +36,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             await login(email, password);
             Alert.alert('Success', 'Logged in successfully');
         } catch (error) {
+            console.error(error);
             Alert.alert('Login Failed', error.message || 'Invalid email or password');
         } finally {
             setIsLoading(false);

@@ -4,7 +4,7 @@ import { useState } from 'react';
 
 
 export const useGameProgress = () => {
-    const { token } = useAuth();
+    const { token, user } = useAuth();
     const [saving, setSaving] = useState(false);
     const apiBaseUrl = "http://192.168.1.142:8080/api";
 
@@ -22,12 +22,15 @@ export const useGameProgress = () => {
         setSaving(true);
 
         try {
+            const requestBody = {
+                userId: user?.id,
+                gameProgress: puzzleData,
+                lastPlayed: new Date().toISOString(),
+            };
+            console.log('Saving progress:', requestBody);
             const response = await axios.post(
                 `${apiBaseUrl}/saveProgress`,
-                {
-                    ...puzzleData,
-                    lastPlayed: new Date().toISOString(),
-                },
+                requestBody,
                 {
                     headers: {
                         Authorization: `Bearer ${token}`

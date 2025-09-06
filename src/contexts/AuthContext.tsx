@@ -58,17 +58,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     const login = async (email: string, password: string) => {
         try {
+            console.log('🔐 Starting login process for:', email);
+            
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            console.log('✅ Firebase auth successful:', userCredential.user.uid);
+            
             const user = userCredential.user;
             const token = await user.getIdToken();
+            console.log('🎫 Firebase token obtained');
 
-            const response = await axios.post(`${apiBaseUrl}/login`, { email, password});
+            const response = await axios.post(`${apiBaseUrl}/login`, token);
+            console.log('🌐 API response status:', response.status);
+            console.log('🌐 API response data:', response.data);
+            
             const { token: newToken, user: userData } = response.data;
+            console.log('👤 User data received:', userData);
 
             await Promise.all([
                 AsyncStorage.setItem('authToken', newToken),
                 AsyncStorage.setItem('userData', JSON.stringify(userData))
             ]);
+            console.log('💾 Data stored successfully');
+            
             setToken(newToken);
             setUser(userData);
             axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;

@@ -27,6 +27,8 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({ navigation }) =
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const { register } = useAuth();
 
     const handleRegister = async () => {
@@ -98,34 +100,55 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({ navigation }) =
                         editable={!isLoading}
                     />
 
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Password"
-                        placeholderTextColor="#999"
-                        value={password}
-                        onChangeText={setPassword}
-                        secureTextEntry
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        editable={!isLoading}
-                        onSubmitEditing={handleRegister}
-                    />
+                    <View style={styles.passwordContainer}>
+                        <TextInput
+                            style={styles.passwordInput}
+                            placeholder="Password"
+                            placeholderTextColor="#999"
+                            value={password}
+                            onChangeText={setPassword}
+                            secureTextEntry={!showPassword}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                            editable={!isLoading}
+                        />
+                        <TouchableOpacity
+                            style={styles.visibilityToggle}
+                            onPress={() => setShowPassword(!showPassword)}
+                            disabled={isLoading}
+                        >
+                            <Text style={styles.visibilityText}>
+                                {showPassword ? 'Hide' : 'Show'}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
 
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Confirm Password"
-                        placeholderTextColor="#999"
-                        value={confirmPassword}
-                        onChangeText={setConfirmPassword}
-                        secureTextEntry
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        editable={!isLoading}
-                        onSubmitEditing={handleRegister}
-                    />
+                    <View style={styles.passwordContainer}>
+                        <TextInput
+                            style={styles.passwordInput}
+                            placeholder="Confirm Password"
+                            placeholderTextColor="#999"
+                            value={confirmPassword}
+                            onChangeText={setConfirmPassword}
+                            secureTextEntry={!showConfirmPassword}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                            editable={!isLoading}
+                            onSubmitEditing={handleRegister}
+                        />
+                        <TouchableOpacity
+                            style={styles.visibilityToggle}
+                            onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                            disabled={isLoading}
+                        >
+                            <Text style={styles.visibilityText}>
+                                {showConfirmPassword ? 'Hide' : 'Show'}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
 
                     <TouchableOpacity
-                        style={[styles.registerButton, isLoading && styles.loadingButtonDisabled]}
+                        style={[styles.registerButton, isLoading && styles.registerButtonDisabled]}
                         onPress={handleRegister}
                         disabled={isLoading}
                     >
@@ -188,6 +211,28 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#333',
     },
+    passwordContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#f8f8f8',
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
+        borderRadius: 12,
+        marginBottom: 20,
+    },
+    passwordInput: {
+        flex: 1,
+        padding: 16,
+        fontSize: 16,
+        color: '#333',
+    },
+    visibilityToggle: {
+        padding: 16,
+    },
+    visibilityText: {
+        color: '#1DB954',
+        fontWeight: '600',
+    },
     registerButton: {
         backgroundColor: '#1DB954',
         padding: 16,
@@ -214,6 +259,3 @@ const styles = StyleSheet.create({
 });
 
 export default RegistrationScreen;
-
-            
-            
