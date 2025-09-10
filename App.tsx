@@ -5,7 +5,7 @@ import { useAuth } from './src/contexts/AuthContext';
 import LoginScreen from './screens/LoginScreen';
 import RegistrationScreen from './screens/RegistrationScreen';
 import HomeScreen from './screens/HomeScreen';
-import PuzzleScreen from './screens/PuzzleScreen';
+import MainMenuScreen from './components/MainMenuScreen';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 
@@ -28,7 +28,7 @@ const AppContent = () => {
                 {user ? (
                     <>
                         <Stack.Screen name="Home" component={HomeScreen} />
-                        <Stack.Screen name="Puzzle" component={PuzzleScreen} initialParams={{ apiBaseUrl: "http://192.168.1.142:8080/api" }} />
+                        <Stack.Screen name="Puzzle" component={MainMenuScreen} initialParams={{ apiBaseUrl: "http://192.168.1.142:8080/api" }} />
                     </>
                 ) : (
                     <>
