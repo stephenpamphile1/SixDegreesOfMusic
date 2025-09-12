@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+// components/MainMenuScreen.tsx
+import React, { useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -9,15 +10,22 @@ import {
   ActivityIndicator,
   SafeAreaView,
   StatusBar,
-  Dimensions
+  Dimensions,
+  Alert
 } from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
+import { LinearGradient } from 'react-native-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import axios from 'axios';
 
 export type RootStackParamList = {
-  GameScreen: { playlistId: string; playlistName: string };
+  PuzzleScreen: { 
+    apiBaseUrl: string;
+    startingArtist: string;
+    targetArtist: string;
+    connectionPath: string[];
+    playlistId: string;
+  };
   Settings: undefined;
   Leaderboard: undefined;
 };
@@ -37,36 +45,101 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const MainMenuScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
-  const [playlists, setPlaylists] = useState<Playlist[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedGenre, setSelectedGenre] = useState<string>('all');
+  const [loadingPlaylist, setLoadingPlaylist] = useState<string | null>(null);
+  const API_BASE_URL = 'http://192.168.1.142:8080/api';
 
-  useEffect(() => {
-    const loadPlaylists = async () => {
-        try {
-            const response = await axios.get<Playlist[]>('http://192.168.1.142:8080/api/playlists');
-            setPlaylists(response.data);
-            setLoading(false);
-        } catch (error) {
-            console.error('Error fetching playlists:', error);
-            setLoading(false);
-        }
-    };
-    
-    loadPlaylists();
-}, []);
+  const predefinedPlaylists: Playlist[] = [
+    {
+      id: 'hiphop',
+      name: 'Hip-Hop Legends',
+      description: 'Connect the biggest names in hip-hop history',
+      artistCount: 25,
+      imageUrl: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&h=300&fit=crop',
+      progress: 75,
+      genre: 'Hip-Hop'
+    },
+    {
+      id: 'rock-classics',
+      name: 'Rock Classics',
+      description: 'From Beatles to Zeppelin and everything in between',
+      artistCount: 30,
+      imageUrl: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=300&fit=crop',
+      completed: true,
+      genre: 'Rock'
+    },
+    {
+      id: 'pop',
+      name: 'Pop Stars',
+      description: 'Modern pop artists and their collaborations',
+      artistCount: 20,
+      imageUrl: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&h=300&fit=crop',
+      progress: 30,
+      genre: 'Pop'
+    },
+    {
+      id: 'rb',
+      name: 'R&B Soul',
+      description: 'Smooth sounds and soulful connections',
+      artistCount: 35,
+      imageUrl: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=400&h=300&fit=crop',
+      genre: 'R&B'
+    },
+    {
+      id: 'country',
+      name: 'Country Roads',
+      description: 'Country music artists and their collaborations',
+      artistCount: 22,
+      imageUrl: 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=400&h=300&fit=crop',
+      genre: 'Country'
+    },
+    {
+        id: 'audiophile',
+        name: 'Audiophile',
+        description: 'The best of the best',
+        artistCount: 10,
+        imageUrl: 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=400&h=300&fit=crop',
+        genre: 'Everything'
+    }
+  ];
 
-  const genres = ['all', ...new Set(playlists.map(p => p.genre).filter(Boolean))] as string[];
+  const genres = ['all', ...new Set(predefinedPlaylists.map(p => p.genre).filter(Boolean))] as string[];
 
   const filteredPlaylists = selectedGenre === 'all' 
-    ? playlists 
-    : playlists.filter(playlist => playlist.genre === selectedGenre);
+    ? predefinedPlaylists 
+    : predefinedPlaylists.filter(playlist => playlist.genre === selectedGenre);
 
-  const handlePlaylistSelect = (playlist: Playlist) => {
-    navigation.navigate('GameScreen', {
-      playlistId: playlist.id,
-      playlistName: playlist.name
-    });
+  const handlePlaylistSelect = async (playlist: Playlist) => {
+    setLoadingPlaylist(playlist.id);
+    
+    try {
+
+      const response = await axios.post(`${API_BASE_URL}/getArtistsToMatch`, { playlistId: playlist.id });
+
+      const { artist1, artist2, path } = response.data;
+
+      if (!artist1 || !artist2 || !path) {
+        throw new Error('Invalid response from server');
+      }
+
+      navigation.navigate('PuzzleScreen', {
+        apiBaseUrl: API_BASE_URL,
+        startingArtist: artist1,
+        targetArtist: artist2,
+        connectionPath: Array.isArray(path) ? path : [path],
+        playlistId: playlist.id
+      });
+
+    } catch (error: any) {
+      console.error('Failed to start puzzle:', error);
+      Alert.alert(
+        'Error',
+        error.response?.data?.error || 'Failed to start the puzzle. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setLoadingPlaylist(null);
+    }
   };
 
   const getGenreColor = (genre: string) => {
@@ -81,15 +154,6 @@ const MainMenuScreen: React.FC = () => {
     return genreColors[genre] || '#667eea';
   };
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#667eea" />
-        <Text style={styles.loadingText}>Loading Playlists...</Text>
-      </View>
-    );
-  }
-
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
@@ -97,12 +161,13 @@ const MainMenuScreen: React.FC = () => {
         colors={['#f5f7fa', '#c3cfe2']}
         style={styles.gradient}
       >
- 
+        {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Music Connect</Text>
+          <Text style={styles.title}>Six Degrees of Music</Text>
           <Text style={styles.subtitle}>Choose Your Playlist</Text>
         </View>
 
+        {/* Genre Filter */}
         <ScrollView 
           horizontal 
           showsHorizontalScrollIndicator={false}
@@ -128,6 +193,7 @@ const MainMenuScreen: React.FC = () => {
           ))}
         </ScrollView>
 
+        {/* Playlists Grid */}
         <ScrollView style={styles.playlistsContainer}>
           <View style={styles.playlistsGrid}>
             {filteredPlaylists.map((playlist) => (
@@ -136,13 +202,22 @@ const MainMenuScreen: React.FC = () => {
                 style={styles.playlistCard}
                 onPress={() => handlePlaylistSelect(playlist)}
                 activeOpacity={0.7}
+                disabled={loadingPlaylist === playlist.id}
               >
+                {loadingPlaylist === playlist.id && (
+                  <View style={styles.loadingOverlay}>
+                    <ActivityIndicator size="large" color="#667eea" />
+                    <Text style={styles.loadingText}>Starting Puzzle...</Text>
+                  </View>
+                )}
+                
                 <Image
                   source={{ uri: playlist.imageUrl }}
                   style={styles.playlistImage}
                   resizeMode="cover"
                 />
                 
+                {/* Progress Bar */}
                 {playlist.progress !== undefined && (
                   <View style={styles.progressContainer}>
                     <View style={styles.progressBar}>
@@ -157,6 +232,7 @@ const MainMenuScreen: React.FC = () => {
                   </View>
                 )}
 
+                {/* Completed Badge */}
                 {playlist.completed && (
                   <View style={styles.completedBadge}>
                     <Text style={styles.completedText}>✓</Text>
@@ -170,6 +246,7 @@ const MainMenuScreen: React.FC = () => {
                   </Text>
                   
                   <View style={styles.playlistMeta}>
+                    {/* Genre Badge */}
                     {playlist.genre && (
                       <View style={[
                         styles.genreBadge,
@@ -191,6 +268,7 @@ const MainMenuScreen: React.FC = () => {
           </View>
         </ScrollView>
 
+        {/* Bottom Navigation */}
         <View style={styles.bottomNav}>
           <TouchableOpacity 
             style={styles.navButton}
@@ -221,17 +299,6 @@ const styles = StyleSheet.create({
   },
   gradient: {
     flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f7fa',
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#666',
   },
   header: {
     padding: 20,
@@ -293,6 +360,22 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#667eea',
+    fontWeight: '600',
   },
   playlistImage: {
     width: '100%',

@@ -8,7 +8,7 @@ type HomeScreenProps = {
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     const handlePlayPress = () => {
-        navigation.navigate('Puzzle');
+        navigation.navigate('MainMenu');
     };
 
     return (

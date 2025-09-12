@@ -16,6 +16,8 @@ export const useGameProgress = () => {
         completed?: boolean;
         timeSpentSeconds?: number;
         incorrectGuesses?: string[];
+        playlistId?: string;
+        userId?: string;
     }) => {
         if (!token) return;
 
@@ -25,6 +27,7 @@ export const useGameProgress = () => {
             const requestBody = {
                 userId: user?.id,
                 gameProgress: puzzleData,
+                playlistId: puzzleData.playlistId,
                 lastPlayed: new Date().toISOString(),
             };
             console.log('Saving progress:', requestBody);

@@ -2,16 +2,17 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 export type RootStackParamList = {
   Home: undefined;
-  Puzzle: { apiBaseUrl: string };
+  MainMenu: undefined;
+  PuzzleScreen: { apiBaseUrl: string; startingArtist: string; targetArtist: string; connectionPath: string[]; playlistId: string };
 };
 
-// For PuzzleScreen
+
 export type PuzzleScreenNavigationProp = NativeStackNavigationProp<
   RootStackParamList,
-  'Puzzle'
+  'PuzzleScreen'
 >;
 
-// For HomeScreen (if needed)
+
 export type HomeScreenNavigationProp = NativeStackNavigationProp<
   RootStackParamList,
   'Home'

@@ -11,7 +11,7 @@ import {
   ScrollView
 } from 'react-native';
 import axios from 'axios';
-import { RouteProp } from '@react-navigation/native';
+import { RouteProp, useRoute } from '@react-navigation/native';
 import { RootStackParamList } from '../src/navigation/navigationTypes';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
@@ -22,16 +22,12 @@ import { useGameProgress } from '../src/hooks/useGameProgress';
 // Define your navigation props
 type PuzzleScreenNavigationProp = NativeStackNavigationProp<
   RootStackParamList,
-  'Puzzle'
+  'PuzzleScreen'
 >;
-type PuzzleScreenRouteProp = RouteProp<RootStackParamList, 'Puzzle'>;
+type PuzzleScreenRouteProp = RouteProp<RootStackParamList, 'PuzzleScreen'>;
 
-interface PuzzleScreenProps {
-  route: PuzzleScreenRouteProp;
-  navigation: PuzzleScreenNavigationProp;
-}
-
-const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ route }) => {
+const PuzzleScreen: React.FC = () => {
+  const route = useRoute<PuzzleScreenRouteProp>();
   const { apiBaseUrl } = route.params;
   const navigation = useNavigation<PuzzleScreenNavigationProp>();
   const [startingArtist, setStartingArtist] = useState<string>('');
@@ -63,19 +59,27 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ route }) => {
   }, [loading, error, startTime]);
 
   useEffect(() => {
-    if (user) {
+    if (user && startingArtist && targetArtist) {
       loadSavedProgress();
     }
-  }, [user]);
+  }, [user, startingArtist, targetArtist]);
 
   const loadSavedProgress = async () => {
-    const progress = await loadProgress();
-    if (progress) {
-        const savedPuzzle = progress.find((p: any) => p.targetArtist === targetArtist);
-        
-        if (savedPuzzle) {
-          setCurrentPath(savedPuzzle.currentPath || [startingArtist]);
+    try {
+      const progress = await loadProgress();
+      if (progress) {
+          const savedPuzzle = progress.find((p: any) => p.targetArtist === targetArtist);
+          
+          if (savedPuzzle) {
+            setCurrentPath(savedPuzzle.currentPath || [startingArtist]);
+        }
+      } else {
+        setCurrentPath([startingArtist]);
       }
+    } catch (error) {
+      console.error('Failed to load saved progress, continuing with fresh puzzle:', error);
+      // Continue with fresh puzzle if loading progress fails
+      setCurrentPath([startingArtist]);
     }
   };
 
@@ -91,43 +95,27 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ route }) => {
   //   }
   // }, [currentPath, user, puzzleId, startingArtist, targetArtist, saveProgress]);
 
-  const fetchArtists = async () => {
-    setLoading(true);
-    setError(null);
-    setWrongGuesses([]);
-    setStartTime(new Date());
-
-    console.log('Fetching artists from:', `${apiBaseUrl}/getArtistsToMatch`);
-    
-    try {
-      const response = await axios.get<{ path: string[] }>(
-        `${apiBaseUrl}/getArtistsToMatch`,
-        {
-          timeout: 10000 // 10 second timeout
-        }
-      );
+  useEffect(() => {
+    if (route.params) {
+      const { apiBaseUrl, startingArtist, targetArtist, connectionPath } = route.params;
       
-      if (response.data?.path?.length >= 2) {
-        setStartingArtist(response.data.path[0]);
-        setTargetArtist(response.data.path[response.data.path.length - 1]);
-        setConnectionPath(response.data.path);
-        setCurrentPath([response.data.path[0]]);
-        
-        // Check if it's a direct connection (only 2 artists)
-        if (response.data.path.length === 2) {
+      if (startingArtist && targetArtist && connectionPath) {
+        setStartingArtist(startingArtist);
+        setTargetArtist(targetArtist);
+        setConnectionPath(connectionPath);
+        setCurrentPath([startingArtist]);
+        setLoading(false);
+
+        if (connectionPath.length === 2) {
           setIsDirectConnection(true);
           setShowKnowSongPrompt(true);
         }
-      } else {
-        setError('Invalid artist data received');
-      }
-    } catch (err) {
-      setError(`Failed to load artists: ${err.message}`);
-      console.error('API Error:', err);
-    } finally {
+      } 
+    } else {
+      setError('No puzzle data provided');
       setLoading(false);
     }
-  };
+  }, [route.params]);
 
   const handleKnowSongPrompt = () => {
     Alert.alert(
@@ -253,7 +241,8 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ route }) => {
             targetArtist,
             completed: true,
             timeSpentSeconds: Math.floor((new Date().getTime() - startTime.getTime()) / 1000),
-            incorrectGuesses: wrongGuesses
+            incorrectGuesses: wrongGuesses,
+            playlistId: route.params.playlistId
           });
         } catch (error) {
           console.error('Failed to save progress:', error);
@@ -300,20 +289,10 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ route }) => {
     try {
       const response = await axios.post(
         `${apiBaseUrl}/verifySongConnectsArtists`,
-        {},
         {
-          params: {
-            startingArtist: startingArtist,
-            targetArtist: targetArtist,  
-            songTitle: songGuess.trim()
-          },
-          paramsSerializer: (params) => {
-            return Object.entries(params)
-              .map(([key, value]) => 
-                `${encodeURIComponent(key)}=${encodeURIComponent(value)}`
-              )
-              .join('&');
-          }
+          startingArtist: startingArtist,
+          targetArtist: targetArtist,  
+          songTitle: songGuess.trim()
         }
       );
 
@@ -382,6 +361,48 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ route }) => {
   }
 };
 
+const fetchArtists = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await axios.post(`${route.params.apiBaseUrl}/getArtistsToMatch`, { 
+        playlistId: route.params.playlistId
+      });
+
+      const { artist1, artist2, path } = response.data;
+
+      if (!artist1 || !artist2 || !path) {
+        throw new Error('Invalid response from server');
+      }
+
+      setStartingArtist(artist1);
+      setTargetArtist(artist2);
+      setConnectionPath(Array.isArray(path) ? path : [path]);
+      setCurrentPath([artist1]);
+      setArtistGuess('');
+      setSongGuess('');
+      setShowSongInput(false);
+      setIsDirectConnection(false);
+      setShowKnowSongPrompt(false);
+      setShowSubmitButton(false);
+      setPotentialConnection('');
+      setWrongGuesses([]);
+      setStartTime(new Date());
+
+      if (Array.isArray(path) && path.length === 2) {
+        setIsDirectConnection(true);
+        setShowKnowSongPrompt(true);
+      }
+
+      setLoading(false);
+    } catch (error) {
+      console.error('Failed to fetch new artists:', error);
+      setError('Failed to load new puzzle. Please try again.');
+      setLoading(false);
+    }
+  };
+
 const handlePuzzleCompletion = async (finalPath: string[]) => {
     const endTime = new Date();
     const timeSpentSeconds = Math.floor((endTime.getTime() - startTime.getTime()) / 1000);
@@ -394,7 +415,9 @@ const handlePuzzleCompletion = async (finalPath: string[]) => {
         targetArtist,
         completed: true,
         timeSpentSeconds,
-        incorrectGuesses: wrongGuesses
+        incorrectGuesses: wrongGuesses,
+        playlistId: route.params.playlistId,
+        userId: user?.id
       });
 
       if (response.data.scoreBreakdown) {
@@ -438,9 +461,6 @@ const handlePuzzleCompletion = async (finalPath: string[]) => {
     }
 }
 
-  useEffect(() => {
-    fetchArtists();
-  }, []);
 
   if (loading) {
     return (
